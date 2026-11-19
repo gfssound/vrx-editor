@@ -1,0 +1,9 @@
+# build output and download caches
+/build/
+/pkg/
+/out/
+/dl/
+node_modules/
+package-lock.json
+.DS_Store
+shots/

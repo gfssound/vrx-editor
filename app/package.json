@@ -1,0 +1,8 @@
+{
+  "name": "vrx-editor",
+  "version": "0.1.3",
+  "description": "Edit Zaxcom VRX receivers over USB. Not made by Zaxcom.",
+  "main": "server.js",
+  "license": "UNLICENSED",
+  "private": true
+}

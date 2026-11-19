@@ -1,0 +1,35 @@
+VRX Editor @VERSION@ for Windows
+=============================
+
+Edits Zaxcom VRX receivers plugged into this computer with their USB cable: channels
+(frequency, delay, voting, enable), unit names and every setting Zaxcom's own VRX app offers,
+for one VRX or several at once, with Compare and Presets. Same screens as the Mac and Linux
+versions. Not made by Zaxcom and contains no Zaxcom code.
+
+Works on 64-bit Windows 10 and 11. Nothing else to install: everything is inside the
+"VRX Editor" folder.
+
+Start
+  1. Unzip this whole folder somewhere you keep apps (for example Documents, or C:\VRX Editor).
+  2. Open the "VRX Editor" folder and double-click "VRX Editor.exe".
+     The first time, Windows may say it protected your PC (the app has no Microsoft signature):
+     click "More info", then "Run anyway".
+  3. Optional: double-click "Install shortcuts.bat" to add VRX Editor to the Start menu and desktop.
+
+Use it
+  - Quit Zaxcom's VRX app first: only one program can use a VRX's USB port at a time.
+  - Plug in a VRX. Each VRX is read when it appears and every 5 s after that.
+  - Change what you need, then WRITE. Each unit is written, read back and compared.
+  - Try it without a VRX: run  "VRX Editor.exe" --simulate  (two simulated units).
+  - If a VRX isn't found by name: VRX Editor > Show Log File. app.log lists every COM port it
+    saw. You can also start it with  "VRX Editor.exe" --serial COM5
+  - Settings, presets and the log are kept in %APPDATA%\VRX Editor.
+
+Update
+  Unzip the new version in place of the old folder (run "Install shortcuts.bat" again if you
+  moved it). Presets stay in %APPDATA%\VRX Editor.
+
+Remove
+  Delete the folder, and the shortcuts if you made them.
+
+Before trusting it on set, write to one VRX and check the unit itself.

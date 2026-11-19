@@ -1,0 +1,26 @@
+# Quick checks on every push and pull request: the protocol against the captured frames, the Windows port code,
+# and the server with simulated units on Linux, Mac and Windows.
+name: Tests
+on:
+  push:
+    paths: ['app/**', 'desktop/**', 'test/**', 'web/**', '.github/workflows/tests.yml']
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node test/trace_test.js test/traces/trace-1.txt
+      - run: node test/trace_test.js test/traces/trace-2.txt 2
+      - run: node test/windows_ports_test.js
+      - run: node test/smoke.js --server app
+      - name: Page is up to date with web/
+        if: runner.os == 'Linux'
+        run: python3 tools/build_page.py && git diff --exit-code app/public

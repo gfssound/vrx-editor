@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VRX Editor</title>
+<style>
+html,body{margin:0;background:#1a1b1d;color:#eceef1;font-family:Inter,Helvetica,Arial,"DejaVu Sans",sans-serif}
+#app{min-height:100vh}
+dc-host{display:contents}
+</style>
+<link rel="stylesheet" href="fonts.css">
+<link rel="icon" href="favicon.png">
+<script src="dc-player.js"></script>
+<script src="vrx-link.js"></script>
+<script src="sources.js"></script>
+</head>
+<body>
+<div id="app"></div>
+<script>
+Object.keys(window.DC_SOURCES).forEach(function (n) {
+  var s = document.createElement('script');
+  s.type = 'text/x-dc-source'; s.dataset.name = n; s.textContent = window.DC_SOURCES[n];
+  document.body.appendChild(s);
+});
+// Start once the server has said which settings it can write, so the page never shows the others.
+(function go(n) {
+  if (window.GuiBridgeLink.vrxCaps || n > 30) return DCPlayer.start('New-VRX');
+  setTimeout(function () { go(n + 1); }, 100);
+})(0);
+</script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+# Builds the ready-to-install downloads on GitHub's own machines and puts them on the Releases page as
+# "VRX Editor <version>" (like Nova Relay's release workflow):
+#   VRX-Editor-<v>-AppleSilicon.dmg / -Intel.dmg   Mac, one per kind of Mac (built on a Mac with mac/Build VRX Editor.command)
+#   VRX-Editor-<v>-Windows.zip                     Windows 10/11 64-bit: unzip, double-click VRX Editor.exe
+#   VRX-Editor-<v>-x86_64.AppImage                 Linux: make it executable, double-click
+# Runs when the version in app/package.json changes on main (that's a new release), or by hand from the Actions tab
+# (Run workflow; "only" rebuilds one download, "none" just rewrites the release notes).
+# Every download is started and checked (two simulated VRX units read, a write confirmed) before it's uploaded.
+name: Release
+on:
+  push:
+    branches: [main]
+    paths: ['app/package.json']
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Build only one download (all, mac, windows, linux; none = just the release notes)"
+        default: all
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "version=$(node -p "require('./app/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Release page
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          node tools/release_notes.js "$V" > notes.md
+          cat notes.md
+          if gh release view "v$V" >/dev/null 2>&1; then gh release edit "v$V" --notes-file notes.md
+          else gh release create "v$V" --target "$GITHUB_SHA" --title "VRX Editor $V" --notes-file notes.md; fi
+
+  mac:
+    needs: release
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'mac' }}
+    runs-on: macos-15
+    strategy:
+      matrix:
+        arch: [arm64, x64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build VRX Editor.app and the .dmg
+        run: VRX_BUILD_QUIET=1 VRX_MAC_ARCH=${{ matrix.arch }} bash "mac/Build VRX Editor.command" && ls -la build
+      - name: Check the .dmg
+        run: |
+          DMG=$(ls build/VRX-Editor-*.dmg)
+          hdiutil verify "$DMG"
+          MNT=$(mktemp -d); hdiutil attach -nobrowse -readonly -mountpoint "$MNT" "$DMG"
+          RES="$MNT/VRX Editor.app/Contents/Resources"
+          ls "$RES/node"; file "$RES/node/${{ matrix.arch }}/node"
+          codesign --verify --deep "$MNT/VRX Editor.app"
+          # The arm64 machine can only run the Apple Silicon Node.js natively; the Intel one runs through Rosetta if present.
+          if [ "${{ matrix.arch }}" = arm64 ] || arch -x86_64 /usr/bin/true 2>/dev/null; then
+            node test/smoke.js --server "$RES/app" --runner "$RES/node/${{ matrix.arch }}/node"
+          else echo "Rosetta not available: Intel Node.js not run"; fi
+          hdiutil detach "$MNT"
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.release.outputs.version }}
+        run: gh release upload "v$V" build/VRX-Editor-$V-*.dmg --clobber
+
+  windows-build:
+    needs: release
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'windows' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: python3 -c "import PIL" || sudo apt-get install -y -qq python3-pil
+      - name: Build the Windows app
+        run: bash tools/build_windows.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: out/VRX-Editor-*-Windows.zip
+          retention-days: 3
+
+  windows:
+    needs: [release, windows-build]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: windows-zip, path: out }
+      - name: Check the Windows app
+        shell: pwsh
+        env:
+          V: ${{ needs.release.outputs.version }}
+        run: |
+          Expand-Archive "out/VRX-Editor-$env:V-Windows.zip" -DestinationPath unz
+          $app = "unz/VRX-Editor-$env:V-Windows/VRX Editor"
+          Get-ChildItem $app | Select-Object Name, Length
+          node test/smoke.js --server "$app/resources/app/server" --runner "$app/VRX Editor.exe" --expect-serial serialport
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          node test/smoke.js --gui "$app/VRX Editor.exe" --data "$env:APPDATA/VRX Editor"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Upload
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.release.outputs.version }}
+        run: gh release upload "v$V" "out/VRX-Editor-$V-Windows.zip" --clobber
+
+  linux:
+    needs: release
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.only == 'all' || inputs.only == 'linux' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: python3 -c "import PIL" || sudo apt-get install -y -qq python3-pil
+      - name: Build the AppImage
+        run: bash tools/build_appimage.sh x86_64
+      - name: Check the AppImage
+        env:
+          V: ${{ needs.release.outputs.version }}
+        run: |
+          AI="$PWD/out/VRX-Editor-$V-x86_64.AppImage"
+          mkdir -p chk && (cd chk && "$AI" --appimage-extract >/dev/null)
+          node test/smoke.js --server chk/squashfs-root/usr/lib/vrx-editor/resources/app/server --runner chk/squashfs-root/usr/lib/vrx-editor/electron
+          sudo apt-get install -y -qq xvfb >/dev/null
+          APPIMAGE_EXTRACT_AND_RUN=1 xvfb-run -a node test/smoke.js --gui "$AI" --data "$HOME/.config/vrx-editor"
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.release.outputs.version }}
+        run: gh release upload "v$V" "out/VRX-Editor-$V-x86_64.AppImage" --clobber
