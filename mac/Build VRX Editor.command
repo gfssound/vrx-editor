@@ -100,7 +100,7 @@ rm -rf "$ICS" "$RES/Assets.car"
 
 step "App details (Info.plist)"
 PL="$APP/Contents/Info.plist"
-plutil -remove CFBundleIconName "$PL" 2>/dev/null
+plutil -remove CFBundleIconName "$PL" >/dev/null 2>&1
 plutil -replace CFBundleIconFile -string applet "$PL" || fail
 plutil -replace CFBundleIdentifier -string com.gfssound.vrxeditor "$PL" || fail
 plutil -replace CFBundleName -string "VRX Editor" "$PL" || fail
@@ -122,8 +122,10 @@ STAGE="$OUT/dmg"; mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/" && ln -s /Applications "$STAGE/Applications" || fail
 DMG="$OUT/$DMGNAME"
 # LZMA (ULMO, macOS 10.15+; the app needs 12) packs noticeably smaller than the usual zlib (UDZO).
-hdiutil create -volname "VRX Editor $VER" -srcfolder "$STAGE" -ov -format ULMO "$DMG" >/dev/null || \
-  hdiutil create -volname "VRX Editor $VER" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null || fail "hdiutil could not make the disk image."
+# The size is given (the app plus room to spare): hdiutil's own guess can come out too small ("No space left on device").
+MB=$(( $(du -sm "$STAGE" | cut -f1) * 12 / 10 + 20 ))
+hdiutil create -volname "VRX Editor $VER" -srcfolder "$STAGE" -fs HFS+ -size "${MB}m" -ov -format ULMO "$DMG" >/dev/null || \
+  hdiutil create -volname "VRX Editor $VER" -srcfolder "$STAGE" -fs HFS+ -size "${MB}m" -ov -format UDZO "$DMG" >/dev/null || fail "hdiutil could not make the disk image."
 rm -rf "$STAGE" "$WORK"
 
 echo

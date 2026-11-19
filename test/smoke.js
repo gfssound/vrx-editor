@@ -62,7 +62,7 @@ async function checkServer(port, logFile) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vrx-smoke-'));
   if (arg('--server')) {
     const dir = path.resolve(arg('--server'));
-    const runner = arg('--runner') || process.execPath;
+    const runner = arg('--runner') ? path.resolve(arg('--runner')) : process.execPath;
     const pf = path.join(tmp, 'port'), log = path.join(tmp, 'app.log');
     const p = spawn(runner, [path.join(dir, 'server.js'), '--no-open', '--port', '0', '--simulate', '2', '--data', tmp, '--port-file', pf, '--log', log],
       { cwd: dir, env: Object.assign({}, process.env, { ELECTRON_RUN_AS_NODE: '1' }), stdio: 'inherit', detached: process.platform !== 'win32' });
@@ -90,7 +90,7 @@ async function checkServer(port, logFile) {
     const data = path.resolve(arg('--data'));
     fs.mkdirSync(data, { recursive: true });
     const pf = path.join(data, 'port'); try { fs.unlinkSync(pf); } catch (e) { /* none */ }
-    const p = spawn(arg('--gui'), ['--simulate', '2'].concat(extra), { stdio: 'inherit', detached: process.platform !== 'win32' });
+    const p = spawn(path.resolve(arg('--gui')), ['--simulate', '2'].concat(extra), { stdio: 'inherit', detached: process.platform !== 'win32' });
     try {
       const port = await waitPort(pf, 60000, p);
       await checkServer(port);
