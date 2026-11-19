@@ -1,6 +1,6 @@
 // Checks vrx.js against the frames in Zaxcom's app trace (simulate mode).
 const fs = require('fs'), V = require('../app/vrx');
-const lines = fs.readFileSync(process.argv[2], 'utf8').split('\n');
+const lines = fs.readFileSync(process.argv[2], 'utf8').split(/\r?\n/);
 const tx = [], rx = {};
 for (const l of lines) {
   const m = l.match(/^vrx\s+([\d.]+) (\S+) (tx|rx) ((?:[0-9a-f]{2} ?)+)$/); if (!m) continue;

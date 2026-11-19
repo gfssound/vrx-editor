@@ -1,0 +1,4 @@
+# Keep LF everywhere (the Windows zip gets CRLF text files from tools/build_windows.sh)
+* text=auto eol=lf
+*.png binary
+*.woff binary
